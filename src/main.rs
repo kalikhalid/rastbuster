@@ -3,7 +3,7 @@ use clap::Parser;
 use clap;
 use std::fs;
 use std::io::Read;
-use reqwest::{StatusCode, get};
+use reqwest::{StatusCode, Error};
 
 #[derive(Parser, Debug)]
 #[clap(author="rustbuster", version="0.0.1", about="Fust and async url buster written on Rust.")]
@@ -18,19 +18,23 @@ struct Cli{
     url: String,
 }
 
-async fn get_code(url: &str) -> Result<StatusCode, &'static str> {
-    let response = reqwest::get(url).await;
-    match response {
-        Ok(response) => return Ok(response.status()),
-        Err(_) => {}
-    }
-    Err("Request failed")
+async fn get_code(url: &str) -> Result<StatusCode, Error> {
+    Ok(reqwest::get(url).await?.status())
 }
 
 #[tokio::main]
 async fn main() -> Result<(), bool> {
     // println!("{}", get_code("https://monkeytype.com/").await.unwrap());
 
+    let s = format!(
+        "\nKhalid project\n{}\n{}\n{}\n{}\n\n{}\n\n",
+        r#".---.  .-. .-. .----..-----..----. .-. .-. .----..-----..----..---.  "#,
+        r#"} }}_} | } { |{ {__-``-' '-'| {_} }| } { |{ {__-``-' '-'} |__}} }}_} "#,
+        r#"| } \  \ `-' /.-._} }  } {  | {_} }\ `-' /.-._} }  } {  } '__}| } \  "#,
+        r#"`- '-'  `---' `----'   `-'  `----'  `---' `----'   `-'  `----'`-'-'  "#,
+        r#"The Modern Day Site Directory Buster."#
+    );
+    println!("{}", s);
 
     let mut output: Vec<String> = Vec::new();
 
@@ -38,25 +42,30 @@ async fn main() -> Result<(), bool> {
 
     let mut file =  fs::File::open(args.path).expect("WordlistFile should be");
     let mut file_text: String = String::new();
-    file.read_to_string(&mut file_text);
+    let _ = file.read_to_string(&mut file_text);
 
     for i in file_text.split('\n').into_iter(){
-        let url_code: Result<StatusCode, &str>;
+        let url_code: Result<StatusCode, Error>;
         let url: String;
-
         if &args.url[args.url.len()-2..args.url.len()-1] == "/"{
-            url = format!("{}/{}/", &args.url, i);
+            url = format!("{}/{}/", args.url, i);
             url_code = get_code(&url).await; 
         }else{
-            url = format!("{}{}/", &args.url, i);
+            url = format!("{}/{}/", &args.url, i);
             url_code = get_code(&url).await;
         }
     
-        match url_code{
-            Ok(status) => output.push(format!("{} ({})", url, status.to_string())),
-            Err(error) => println!("Error: {}", error),
+        match url_code {
+                        
+            Ok(code) => {
+                if !code.to_string().contains("404") && i.len() > 1{
+                    println!("/{} {}", i, code)
+                }
+            },
+            Err(e) => {println!("Error: {}", e); return Err(false);},
+
         }
+
     }
-    println!("{:?}", output);
     Ok(())
 }
